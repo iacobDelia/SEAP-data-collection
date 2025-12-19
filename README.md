@@ -19,3 +19,4 @@ SysNoticeTypeids:
 
 - There are instances of an association of companies winning a single contract, the script only saves the leader
 
+- Contractors that show up as individuals don't have a CUI. For them, I used ```I_noticeEntityAddressId``` as a fallback primary key, and added an ```isIndividual``` key
