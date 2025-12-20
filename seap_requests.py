@@ -8,6 +8,14 @@ def get_info_CANotice(id):
     r = requests.get(url, headers = headers)
     return r.json()
 
+def get_contract_details(id):
+    headers = {'Content-Type': 'application/json;charset=UTF-8',
+               'Referer': 'https://e-licitatie.ro/pub/notices/contract-notices/list/0/0'}
+    url = 'https://www.e-licitatie.ro/api-pub/C_PUBLIC_CANotice/GetContractView/?contractId=' + id
+    r = requests.get(url, headers = headers)
+    return r.json()
+
+
 def get_contract_award_list(start_date, end_date):
     headers = {'Content-Type': 'application/json;charset=UTF-8',
                'Referer': 'https://e-licitatie.ro/pub/notices/contract-notices/list/0/0'}
@@ -37,7 +45,7 @@ def get_contract_award_list(start_date, end_date):
     r = requests.post(url, headers = headers, json = body, timeout = 5)
     return r.json()['items']
 
-def get_contract_info(caNoticeId):
+def get_contracts_info(caNoticeId):
     headers = {'Content-Type': 'application/json;charset=UTF-8',
                'Referer': 'https://e-licitatie.ro/pub/notices/contract-notices/list/0/0'}
     url = 'http://e-licitatie.ro/api-pub/C_PUBLIC_CANotice/GetCANoticeContracts'
