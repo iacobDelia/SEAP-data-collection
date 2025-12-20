@@ -1,12 +1,10 @@
 
 from datetime import datetime
 import time
-from zoneinfo import ZoneInfo
 import os
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 import pyarrow as pa
-import seap_requests
 
 # convert date from string to datetime
 def convert_date(string_data):
@@ -21,6 +19,7 @@ def clean_CUI(CUI):
         return None
     return ''.join(filter(str.isdigit, CUI))
 
+# writes the batches for contract_awards and contracts, separated by year
 def write_to_dataset(list, parition_column, root_path):
     data_table = pa.Table.from_pylist(list)
     pq.write_to_dataset(
@@ -30,6 +29,7 @@ def write_to_dataset(list, parition_column, root_path):
     )
     return data_table
 
+# writes the batches for contractors and authorities
 def save_entities(entity_list, folder_name):
     if entity_list:
         table_new = pa.Table.from_pylist(entity_list)
@@ -38,18 +38,17 @@ def save_entities(entity_list, folder_name):
         file_path = f'seap_dataset/{folder_name}/batch_{ts}.parquet'
         pq.write_table(table_new, file_path)
 
-
-# load entity ids
+# load entity ids (contactors and authorities)
 def load_entity_ids(entity_type, entity_id):
     path = f'seap_dataset/{entity_type}'
     if os.path.exists(path) and any(f.endswith('.parquet') for f in os.listdir(path)):
+        # load only the column that is needed
         table = pq.read_table(path, columns=[entity_id])
         return set(table[entity_id].to_pylist())
     return set()
 
+# generates a contract award entry
 def get_notice_entry(item, date, info_dict):
-    
-
     # these sections have a suffix for utility acquisitions    
     suffix = "_U" if info_dict.get('caNoticeEdit_New') is None else ""
     root = info_dict.get(f'caNoticeEdit_New{suffix}')
@@ -62,7 +61,7 @@ def get_notice_entry(item, date, info_dict):
     publicationDate = convert_date(root.get('publicationDetailsModel').get('publicationDate', None))
 
     authority_address = root.get(f'section1_New{suffix}').get('section1_1', {}).get('caAddress', {})
-    final_item = {
+    return {
         'caNoticeId': item.get('caNoticeId', None),
         'noticeId': item.get('noticeId', None),
         'sysNoticeTypeId': item.get('sysNoticeTypeId', None),
@@ -88,8 +87,8 @@ def get_notice_entry(item, date, info_dict):
 
         'year': date.year
     }
-    return final_item
 
+# generates an authority entry
 def get_authority_entry(info_dict):
     suffix = "_U" if info_dict.get('caNoticeEdit_New') is None else ""
     root = info_dict.get(f'caNoticeEdit_New{suffix}')
@@ -97,10 +96,35 @@ def get_authority_entry(info_dict):
 
     nuts_text = (authority_address.get('nutsCodeItem') or {}).get('text', "")
     _, _, county = nuts_text.partition(" ")
-    new_authority = {
+    return {
         'authorityId': authority_address.get('entityId', None),
         'officialName': authority_address.get('officialName', None),
         'county':  county,
         'country': authority_address.get('country', None)
     }
-    return new_authority
+
+# generates a contract entry
+def get_contract_entry(date, contract, winnerCUI, detailed_contract):
+    return {
+    'caNoticeContractId': contract.get('caNoticeContractId', None),
+    'caNoticeId': contract.get('caNoticeId', None),
+    'contractTitle': contract.get('contractTitle', None),
+    'contractDate': convert_date(contract.get('contractDate')),
+    'winnerCUI': winnerCUI,
+    'estimatedContractValue': detailed_contract.get('section524', {}).get('estimatedContractValue', None),
+    'contractValue': contract.get('defaultCurrencyContractValue', None),
+    'numberOfReceivedOffers':detailed_contract.get('section522', {}).get('numberOfReceivedOffers', None),
+    'year': date.year,
+    }
+
+# generates a contractor entry
+def get_contractor_entry(winnerCUI, address, isIndividual):
+    return {
+        'CUI': winnerCUI,
+        'isIndividual': isIndividual,
+        'officialName': address.get('officialName', None),
+        # county may be blank sometimes
+        'county': (address.get('county') or {}).get('text', None),
+        'country': address.get('country', None),
+        'isSME': address.get('isSME', None)
+    }
