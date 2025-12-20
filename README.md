@@ -2,7 +2,7 @@
 
 
 
-# Seap data collection tool
+# SEAP data collection tool
 Python tool for collecting contract data from the SEAP site.
 ## Usage
 ```
@@ -77,7 +77,9 @@ The data for contracts and contract_awards is further split into years because o
 | **county** | `string` | The administrative county (Judet) where the contractor is located |
 | **country** | `string` | The country where the contractor is located |
 | **isSME** | `bool` | Whether the contractor is a small or medium enterprise |
+
 No personal information or contact info was collected.
+
 ## System ids
 ### sysNoticeTypeid
 - 3: Anunt de atribuire la Anunt de participare (CN)
