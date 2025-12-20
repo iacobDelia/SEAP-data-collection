@@ -120,3 +120,5 @@ No personal information or contact info was collected.
 - There are instances of an association of companies winning a single contract, the script only saves the leader
 
 - Contractors that show up as individuals don't have a CUI. For them, I used ```I_noticeEntityAddressId``` as a fallback primary key, and added an ```isIndividual``` column
+
+This is a tool for data collection. Users are responsible for following the Terms and Conditions of the SEAP/SICAP platform.
