@@ -5,18 +5,18 @@ def get_info_CANotice(id):
     headers = {'Content-Type': 'application/json;charset=UTF-8',
                'Referer': 'https://e-licitatie.ro/pub/notices/contract-notices/list/0/0'}
     url = 'http://e-licitatie.ro/api-pub/C_PUBLIC_CANotice/get/' + id
-    r = requests.get(url, headers = headers)
+    r = requests.get(url, headers = headers, timeout = 5)
     return r.json()
 
 def get_contract_details(id):
     headers = {'Content-Type': 'application/json;charset=UTF-8',
                'Referer': 'https://e-licitatie.ro/pub/notices/contract-notices/list/0/0'}
     url = 'https://www.e-licitatie.ro/api-pub/C_PUBLIC_CANotice/GetContractView/?contractId=' + id
-    r = requests.get(url, headers = headers)
+    r = requests.get(url, headers = headers, timeout = 5)
     return r.json()
 
 
-def get_contract_award_list(start_date, end_date):
+def get_contract_award_list(date):
     headers = {'Content-Type': 'application/json;charset=UTF-8',
                'Referer': 'https://e-licitatie.ro/pub/notices/contract-notices/list/0/0'}
     url = 'http://e-licitatie.ro/api-pub/NoticeCommon/GetCANoticeList/'
@@ -39,8 +39,8 @@ def get_contract_award_list(start_date, end_date):
     'assignedUserId': None,
     'sysAcquisitionContractTypeId': None,
     'pageIndex': 0,
-    'startPublicationDate': start_date,
-    'endPublicationDate': end_date
+    'startPublicationDate': date,
+    'endPublicationDate': date
     }
     r = requests.post(url, headers = headers, json = body, timeout = 5)
     return r.json()['items']
