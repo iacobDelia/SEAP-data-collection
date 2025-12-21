@@ -29,6 +29,8 @@ SEAP_DATASET
 ├───contract_awards
 └───lots
 ```
+## Schema
+![schema](schema.svg "Data schema")
 ## Features
 ### Contract awards
 | Feature | Data Type | Description |
