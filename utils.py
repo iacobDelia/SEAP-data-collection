@@ -103,7 +103,7 @@ def get_authority_entry(info_dict):
         'country': authority_address.get('country', None)
     }
 
-
+# generates a lot entry
 def get_lots_entry(lot_item, caNoticeId):
     cpv = lot_item.get('mainCPVCodes', {}).get('text')
     return {
@@ -141,35 +141,7 @@ def get_contractor_entry(winnerCUI, address, isIndividual):
         'isSME': address.get('isSME', None)
     }
 
-# def merge_everything():
-#     path_authorities = 'seap_dataset/authorities'
-#     path_contract_awards = 'seap_dataset/contract_awards'
-#     path_contracts = 'seap_dataset/contracts'
-#     path_contractors = 'seap_dataset/contractors'
-#     path_lots = 'seap_dataset/lots'
-
-#     authorities_list = [os.path.join(path_authorities, f) for f in os.listdir(path_authorities)]
-#     ts = time.time_ns()
-#     merge_parquet(authorities_list, f'seap_dataset/authorities/authorities_{ts}.parquet')
-#     contractors_list = [os.path.join(path_contractors, f) for f in os.listdir(path_contractors)]
-#     ts = time.time_ns()
-#     merge_parquet(contractors_list, f'seap_dataset/contractors/contractors_{ts}.parquet')
-
-
-#     for directory in os.listdir(path_contract_awards):
-#         crt_folder_path = os.path.join(path_contract_awards, directory)
-#         ca_list = [os.path.join(crt_folder_path, f) for f in os.listdir(crt_folder_path)]
-#         ca_list = list(filter(lambda f: f.endswith('.parquet'), ca_list))
-#         ts = time.time_ns()
-#         merge_parquet(ca_list, os.path.join(crt_folder_path, f'contract_awards_{ts}.parquet'))
-    
-#     for directory in os.listdir(path_contracts):
-#         crt_folder_path = os.path.join(path_contracts, directory)
-#         ca_list = [os.path.join(crt_folder_path, f) for f in os.listdir(crt_folder_path)]
-#         ca_list = list(filter(lambda f: f.endswith('.parquet'), ca_list))
-#         ts = time.time_ns()
-#         merge_parquet(ca_list, os.path.join(crt_folder_path, f'contracts_{ts}.parquet'))
-
+# merges all the parquet files
 def merge_everything():
     tables = ['authorities', 'contract_awards', 'contracts',
              'contractors', 'lots']
@@ -180,6 +152,7 @@ def merge_everything():
         ts = time.time_ns()
         merge_parquet(file_list, f'seap_dataset/{table_name}/{table_name}_{ts}.parquet')
 
+# merges all parquet files from a given list
 def merge_parquet(files, name):
     if not files:
         return

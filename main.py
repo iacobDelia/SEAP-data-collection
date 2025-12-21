@@ -18,17 +18,15 @@ authorityId_set = utils.load_entity_ids('authorities', 'authorityId')
 CUI_set = utils.load_entity_ids('contractors', 'CUI')
 lots_map = {}
 # interval of time between API requests
-interval = 0.5
+interval = 0.8
 
 def save_current_batch():
     global accumulated_notices, accumulated_contracts, accumulated_contractors, accumulated_authorities, accumulated_lots
     if accumulated_notices:
-        #utils.write_to_dataset(accumulated_notices, 'year', 'seap_dataset/contract_awards')
         utils.save_entities(accumulated_notices, 'contract_awards')
     if accumulated_authorities:
         utils.save_entities(accumulated_authorities, 'authorities')
     if accumulated_contracts:
-        #utils.write_to_dataset(accumulated_contracts, 'year', 'seap_dataset/contracts')
         utils.save_entities(accumulated_contracts, 'contracts')
     if accumulated_contractors:
         utils.save_entities(accumulated_contractors, 'contractors')
@@ -129,7 +127,7 @@ def process_contracts_and_contractors(ca_table_ids, date):
             tqdm.write(f"Error for contract with the notice {caNoticeId} caused by exception {e}\n Skipping this item.")
             continue
         
-    
+
 def get_data(start_date, end_date, batch_size):
     os.makedirs('seap_dataset/contract_awards', exist_ok=True)
     os.makedirs('seap_dataset/authorities', exist_ok=True)
@@ -137,6 +135,8 @@ def get_data(start_date, end_date, batch_size):
     os.makedirs('seap_dataset/contractors', exist_ok=True)
     os.makedirs('seap_dataset/lots', exist_ok=True)
     total_days = (end_date - start_date).days + 1
+
+    # for the period give, go through each day
     dates = [start_date + datetime.timedelta(days=i) for i in range(total_days)]
     pbar = tqdm(dates, desc="Total progress", position=0, leave=False)
 
