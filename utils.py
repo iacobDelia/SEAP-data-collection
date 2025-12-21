@@ -58,7 +58,8 @@ def get_notice_entry(item, date, info_dict):
     totalAcquisitionValue = section2.get(f'section2_1_New{suffix}', {}).get('totalAcquisitionValue', None)
     mainCPVCode = section2.get(f'section2_1_New{suffix}', {}).get('mainCPVCode', {}).get('localeKey', None)
     caPublicationDate = convert_date(root.get('publicationDetailsModel', {}).get('caPublicationDate', None))
-    publicationDate = convert_date(root.get('publicationDetailsModel').get('publicationDate', None))
+    pub_details = (root.get('publicationDetailsModel') or {})
+    publicationDate = convert_date(pub_details.get('publicationDate'))
 
     authority_address = root.get(f'section1_New{suffix}').get('section1_1', {}).get('caAddress', {})
     return {
@@ -111,9 +112,9 @@ def get_contract_entry(date, contract, winnerCUI, detailed_contract):
     'contractTitle': contract.get('contractTitle', None),
     'contractDate': convert_date(contract.get('contractDate')),
     'winnerCUI': winnerCUI,
-    'estimatedContractValue': detailed_contract.get('section524', {}).get('estimatedContractValue', None),
+    'estimatedContractValue': (detailed_contract.get('section524') or {}).get('estimatedContractValue', None),
     'contractValue': contract.get('defaultCurrencyContractValue', None),
-    'numberOfReceivedOffers':detailed_contract.get('section522', {}).get('numberOfReceivedOffers', None),
+    'numberOfReceivedOffers': (detailed_contract.get('section522') or {}).get('numberOfReceivedOffers', None),
     'year': date.year,
     }
 
@@ -128,3 +129,40 @@ def get_contractor_entry(winnerCUI, address, isIndividual):
         'country': address.get('country', None),
         'isSME': address.get('isSME', None)
     }
+
+def merge_everything():
+    path_authorities = 'seap_dataset/authorities'
+    path_contract_awards = 'seap_dataset/contract_awards'
+    path_contracts = 'seap_dataset/contracts'
+    path_contractors = 'seap_dataset/contractors'
+
+    authorities_list = [os.path.join(path_authorities, f) for f in os.listdir(path_authorities)]
+    ts = time.time_ns()
+    merge_parquet(authorities_list, f'seap_dataset/authorities/authorities_{ts}.parquet')
+    contractors_list = [os.path.join(path_contractors, f) for f in os.listdir(path_contractors)]
+    ts = time.time_ns()
+    merge_parquet(contractors_list, f'seap_dataset/contractors/contractors_{ts}.parquet')
+    for directory in os.listdir(path_contract_awards):
+        crt_folder_path = os.path.join(path_contract_awards, directory)
+        ca_list = [os.path.join(crt_folder_path, f) for f in os.listdir(crt_folder_path)]
+        ca_list = list(filter(lambda f: f.endswith('.parquet'), ca_list))
+        ts = time.time_ns()
+        merge_parquet(ca_list, os.path.join(crt_folder_path, f'contract_awards_{ts}.parquet'))
+    
+    for directory in os.listdir(path_contracts):
+        crt_folder_path = os.path.join(path_contracts, directory)
+        ca_list = [os.path.join(crt_folder_path, f) for f in os.listdir(crt_folder_path)]
+        ca_list = list(filter(lambda f: f.endswith('.parquet'), ca_list))
+        ts = time.time_ns()
+        merge_parquet(ca_list, os.path.join(crt_folder_path, f'contracts_{ts}.parquet'))
+
+
+def merge_parquet(files, name):
+    if not files:
+        return
+    schema = pq.ParquetFile(files[0]).schema_arrow
+    with pq.ParquetWriter(name, schema=schema) as writer:
+        for file in files:
+            writer.write_table(pq.read_table(file, schema=schema))
+    for file in files:
+        os.remove(file)

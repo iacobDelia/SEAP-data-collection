@@ -17,7 +17,7 @@ authorityId_set = utils.load_entity_ids('authorities', 'authorityId')
 CUI_set = utils.load_entity_ids('contractors', 'CUI')
 
 # interval of time between API requests
-interval = 0.8
+interval = 0.5
 
 def save_current_batch():
     global accumulated_notices, accumulated_contracts, accumulated_contractors, accumulated_authorities
@@ -80,8 +80,8 @@ def process_contracts_and_contractors(ca_table_ids, date):
             contract_items = seap_requests.get_contracts_info(str(caNoticeId))
             for contract in contract_items:
                 isIndividual = False
-                address = contract.get('winner', {}).get('address', {})
-
+                winner_data = (contract.get('winner') or {})
+                address = (winner_data.get('address') or {})
                 winnerCUI = utils.clean_CUI(contract.get('winner', {}).get('fiscalNumber', ""))
                 # if the contractor is an individual the CUI will be blank, use I_{noticeEntityAddressId} as a placeholder
                 if winnerCUI == '':
@@ -124,7 +124,9 @@ def get_data(start_date, end_date, batch_size):
         except Exception as e:
             print(f"Error for day {current_date}, caused by exception {e}\n Skipping day")
             continue
+    
     save_current_batch()
+    utils.merge_everything()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
