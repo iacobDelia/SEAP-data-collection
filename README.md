@@ -17,18 +17,18 @@ positional arguments:
 options:
   -h, --help            show this help message and exit
 ```
-Note that SEAP has a [limit for the number of API requests](https://e-licitatie.ro/pub/archive/news-feed/100002361) you can send. To avoid this, the program waits approximately 0.8 seconds between each request. This value can be changed in main.py... at your own risk :]
+Note that SEAP has a [limit for the number of API requests](https://e-licitatie.ro/pub/archive/news-feed/100002361) you can send. To avoid this, the program waits approximately 0.5 seconds between each request. This value can be changed in main.py... at your own risk :]
 ## Data format
-The script saves the data in parquet files in batches. The approximate batch size can be chosen by the user using command line arguments.
+The script saves the data in parquet files in batches. The approximate batch size can be chosen by the user using command line arguments. The batch size is there mainly for memory concerns and for saving incremental progress in case of a crash.
 File structure:
 ```
 SEAP_DATASET
 ├───authorities
 ├───contractors
 ├───contracts
-└───contract_awards
+├───contract_awards
+└───lots
 ```
-The data for contracts and contract_awards is further split into years because of its bigger amount.
 ## Features
 ### Contract awards
 | Feature | Data Type | Description |
@@ -57,6 +57,16 @@ The data for contracts and contract_awards is further split into years because o
 | **officialName** | `string` | The full name of the organization |
 | **county** | `string` | The administrative county (Judet) where the Contracing Authority is located |
 | **country** | `string` | The country of residence |
+### Lots
+| Feature | Data Type | Description |
+| :--- | :--- | :--- |
+| **lotId** | `int64` | Unique internal identifier for the specific lot |
+| **caNoticeId** | `int64` | Foreign key referencing the parent Contract Award Notice |
+| **contractTitle** | `string` | The title assigned to this specific lot |
+| **CPV** | `string` | CPV code |
+| **estimatedValue** | `double` | The initial estimated budget for this lot before bidding |
+| **sysAwardCriteriaType** | `string` | The evaluation method used |
+| **caNoticeContractId** | `int64` | Foreign key referencing the specific awarded contract |
 ### Contracts
 | Feature | Data Type | Description |
 | :--- | :--- | :--- |
@@ -81,13 +91,15 @@ The data for contracts and contract_awards is further split into years because o
 No personal information or contact info was collected.
 
 ## Notes
-- There is also a field ```noticeAwardCriteriaList``` that the script doesn't save. It contains the weights of the reasons for choosing a bidder. For example:
+- There is also a field ```noticeAwardCriteriaList``` for each lot that the script doesn't save. It contains the weights of the reasons for choosing a bidder. For example:
     - Price: 60%
     - Warranty: 20%
     - Quality: 20%
 
+  I chose not to include them because of the high variance in terminology that wouldn't be helpful for group-based analysis. Instead, I only went with ```sysAwardCriteriaType```, which has more standardized values.
+
 - There are instances of an association of companies winning a single contract, the script only saves the leader
 
-- Contractors that show up as individuals don't have a CUI. For them, I used ```I_noticeEntityAddressId``` as a fallback primary key, and added an ```isIndividual``` column
+- Contractors that show up as individuals don't have a CUI. For them, I used ```I_{noticeEntityAddressId}``` as a fallback primary key, and added an ```isIndividual``` column to the contractors table.
 
 This is a tool for data collection. Users are responsible for following the Terms and Conditions of the SEAP/SICAP platform.

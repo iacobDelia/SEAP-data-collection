@@ -19,7 +19,7 @@ def clean_CUI(CUI):
         return None
     return ''.join(filter(str.isdigit, CUI))
 
-# writes the batches for contract_awards and contracts, separated by year
+# writes the batches for contract_awards and contracts, separated by year, not used anymore
 def write_to_dataset(list, parition_column, root_path):
     data_table = pa.Table.from_pylist(list)
     pq.write_to_dataset(
@@ -48,7 +48,7 @@ def load_entity_ids(entity_type, entity_id):
     return set()
 
 # generates a contract award entry
-def get_notice_entry(item, date, info_dict):
+def get_notice_entry(item, info_dict):
     # these sections have a suffix for utility acquisitions    
     suffix = "_U" if info_dict.get('caNoticeEdit_New') is None else ""
     root = info_dict.get(f'caNoticeEdit_New{suffix}')
@@ -86,7 +86,6 @@ def get_notice_entry(item, date, info_dict):
         'caPublicationDate': caPublicationDate,
         'publicationDate': publicationDate,
 
-        'year': date.year
     }
 
 # generates an authority entry
@@ -104,8 +103,21 @@ def get_authority_entry(info_dict):
         'country': authority_address.get('country', None)
     }
 
+
+def get_lots_entry(lot_item, caNoticeId):
+    cpv = lot_item.get('mainCPVCodes', {}).get('text')
+    return {
+        'lotId': lot_item.get('noticeLotID', None),
+        'caNoticeId': caNoticeId,
+        'contractTitle': lot_item.get('contractTitle', None),
+        'CPV': cpv[:10] if cpv else '',
+        'estimatedValue': lot_item.get('estimatedValue', None),
+        'sysAwardCriteriaType': lot_item.get('sysAwardCriteriaType', {}).get('text', None),
+        'caNoticeContractId': None
+    }
+
 # generates a contract entry
-def get_contract_entry(date, contract, winnerCUI, detailed_contract):
+def get_contract_entry(contract, winnerCUI, detailed_contract):
     return {
     'caNoticeContractId': contract.get('caNoticeContractId', None),
     'caNoticeId': contract.get('caNoticeId', None),
@@ -115,7 +127,6 @@ def get_contract_entry(date, contract, winnerCUI, detailed_contract):
     'estimatedContractValue': (detailed_contract.get('section524') or {}).get('estimatedContractValue', None),
     'contractValue': contract.get('defaultCurrencyContractValue', None),
     'numberOfReceivedOffers': (detailed_contract.get('section522') or {}).get('numberOfReceivedOffers', None),
-    'year': date.year,
     }
 
 # generates a contractor entry
@@ -130,32 +141,44 @@ def get_contractor_entry(winnerCUI, address, isIndividual):
         'isSME': address.get('isSME', None)
     }
 
-def merge_everything():
-    path_authorities = 'seap_dataset/authorities'
-    path_contract_awards = 'seap_dataset/contract_awards'
-    path_contracts = 'seap_dataset/contracts'
-    path_contractors = 'seap_dataset/contractors'
+# def merge_everything():
+#     path_authorities = 'seap_dataset/authorities'
+#     path_contract_awards = 'seap_dataset/contract_awards'
+#     path_contracts = 'seap_dataset/contracts'
+#     path_contractors = 'seap_dataset/contractors'
+#     path_lots = 'seap_dataset/lots'
 
-    authorities_list = [os.path.join(path_authorities, f) for f in os.listdir(path_authorities)]
-    ts = time.time_ns()
-    merge_parquet(authorities_list, f'seap_dataset/authorities/authorities_{ts}.parquet')
-    contractors_list = [os.path.join(path_contractors, f) for f in os.listdir(path_contractors)]
-    ts = time.time_ns()
-    merge_parquet(contractors_list, f'seap_dataset/contractors/contractors_{ts}.parquet')
-    for directory in os.listdir(path_contract_awards):
-        crt_folder_path = os.path.join(path_contract_awards, directory)
-        ca_list = [os.path.join(crt_folder_path, f) for f in os.listdir(crt_folder_path)]
-        ca_list = list(filter(lambda f: f.endswith('.parquet'), ca_list))
-        ts = time.time_ns()
-        merge_parquet(ca_list, os.path.join(crt_folder_path, f'contract_awards_{ts}.parquet'))
+#     authorities_list = [os.path.join(path_authorities, f) for f in os.listdir(path_authorities)]
+#     ts = time.time_ns()
+#     merge_parquet(authorities_list, f'seap_dataset/authorities/authorities_{ts}.parquet')
+#     contractors_list = [os.path.join(path_contractors, f) for f in os.listdir(path_contractors)]
+#     ts = time.time_ns()
+#     merge_parquet(contractors_list, f'seap_dataset/contractors/contractors_{ts}.parquet')
+
+
+#     for directory in os.listdir(path_contract_awards):
+#         crt_folder_path = os.path.join(path_contract_awards, directory)
+#         ca_list = [os.path.join(crt_folder_path, f) for f in os.listdir(crt_folder_path)]
+#         ca_list = list(filter(lambda f: f.endswith('.parquet'), ca_list))
+#         ts = time.time_ns()
+#         merge_parquet(ca_list, os.path.join(crt_folder_path, f'contract_awards_{ts}.parquet'))
     
-    for directory in os.listdir(path_contracts):
-        crt_folder_path = os.path.join(path_contracts, directory)
-        ca_list = [os.path.join(crt_folder_path, f) for f in os.listdir(crt_folder_path)]
-        ca_list = list(filter(lambda f: f.endswith('.parquet'), ca_list))
-        ts = time.time_ns()
-        merge_parquet(ca_list, os.path.join(crt_folder_path, f'contracts_{ts}.parquet'))
+#     for directory in os.listdir(path_contracts):
+#         crt_folder_path = os.path.join(path_contracts, directory)
+#         ca_list = [os.path.join(crt_folder_path, f) for f in os.listdir(crt_folder_path)]
+#         ca_list = list(filter(lambda f: f.endswith('.parquet'), ca_list))
+#         ts = time.time_ns()
+#         merge_parquet(ca_list, os.path.join(crt_folder_path, f'contracts_{ts}.parquet'))
 
+def merge_everything():
+    tables = ['authorities', 'contract_awards', 'contracts',
+             'contractors', 'lots']
+
+    for table_name in tables:
+        path = 'seap_dataset/' + table_name
+        file_list = [os.path.join(path, f) for f in os.listdir(path)]
+        ts = time.time_ns()
+        merge_parquet(file_list, f'seap_dataset/{table_name}/{table_name}_{ts}.parquet')
 
 def merge_parquet(files, name):
     if not files:

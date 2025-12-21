@@ -11,30 +11,37 @@ accumulated_notices = []
 accumulated_authorities = []
 accumulated_contracts = []
 accumulated_contractors = []
+accumulated_lots = []
 
 # use sets for looking up existing ids, it's faster
 authorityId_set = utils.load_entity_ids('authorities', 'authorityId')
 CUI_set = utils.load_entity_ids('contractors', 'CUI')
-
+lots_map = {}
 # interval of time between API requests
 interval = 0.5
 
 def save_current_batch():
-    global accumulated_notices, accumulated_contracts, accumulated_contractors, accumulated_authorities
+    global accumulated_notices, accumulated_contracts, accumulated_contractors, accumulated_authorities, accumulated_lots
     if accumulated_notices:
-        utils.write_to_dataset(accumulated_notices, 'year', 'seap_dataset/contract_awards')
+        #utils.write_to_dataset(accumulated_notices, 'year', 'seap_dataset/contract_awards')
+        utils.save_entities(accumulated_notices, 'contract_awards')
     if accumulated_authorities:
         utils.save_entities(accumulated_authorities, 'authorities')
     if accumulated_contracts:
-        utils.write_to_dataset(accumulated_contracts, 'year', 'seap_dataset/contracts')
+        #utils.write_to_dataset(accumulated_contracts, 'year', 'seap_dataset/contracts')
+        utils.save_entities(accumulated_contracts, 'contracts')
     if accumulated_contractors:
         utils.save_entities(accumulated_contractors, 'contractors')
+    if accumulated_lots:
+        utils.save_entities(accumulated_lots, 'lots')
 
     # reset the lists to free up space in memory
     accumulated_authorities = []
     accumulated_notices = []
     accumulated_contractors = []
     accumulated_contracts = []
+    accumulated_lots = []
+    lots_map = {}
     
 def process_CA_and_authorities(date):
     date_str = date.strftime("%Y-%m-%d")
@@ -50,7 +57,7 @@ def process_CA_and_authorities(date):
             # ignore framework agreements
             if assignment_type_id != 3:
                 info_dict = seap_requests.get_info_CANotice(str(item['caNoticeId']))
-                final_item = utils.get_notice_entry(item, date, info_dict)
+                final_item = utils.get_notice_entry(item, info_dict)
 
                 notice_ids.append(item.get('caNoticeId', None))
                 accumulated_notices.append(final_item)
@@ -60,13 +67,23 @@ def process_CA_and_authorities(date):
                 root = info_dict.get(f'caNoticeEdit_New{suffix}')
                 authority_address = root.get(f'section1_New{suffix}').get('section1_1', {}).get('caAddress', {})
 
+                section2 = root.get(f'section2_New{suffix}')
+                lots = section2.get(f'section2_2_New{suffix}', {}).get('descriptionList', [])
+
+                for lot in lots:
+                    new_lot = utils.get_lots_entry(lot, item.get('caNoticeId', None))
+                    accumulated_lots.append(new_lot)
+                    crt_id = new_lot.get('lotId')
+                    if crt_id:
+                        lots_map[crt_id] = new_lot
+
                 if(authority_address.get('entityId') not in authorityId_set):
                     new_authority = utils.get_authority_entry(info_dict)
                     accumulated_authorities.append(new_authority)
                     authorityId_set.add(authority_address.get('entityId', None))
                 time.sleep(interval)
         except Exception as e:
-            print(f"Error for notice {item.get('caNoticeId')} caused by exception {e}\n Skipping this item.")
+            tqdm.write(f"Error for notice {item.get('caNoticeId')} caused by exception {e}\n Skipping this item.")
             continue
     return notice_ids
 
@@ -91,18 +108,25 @@ def process_contracts_and_contractors(ca_table_ids, date):
                 detailed_contract = seap_requests.get_contract_details(str(contract.get('caNoticeContractId')))
                 
                 # generate another contract entry and append it to the list
-                final_contract = utils.get_contract_entry(date, contract, winnerCUI, detailed_contract)
+                final_contract = utils.get_contract_entry(contract, winnerCUI, detailed_contract)
                 accumulated_contracts.append(final_contract)
                 
                 # generate another contractor entry and append it to the list
-                if(winnerCUI not in CUI_set):
+                if winnerCUI not in CUI_set:
                     new_contractor = utils.get_contractor_entry(winnerCUI,address, isIndividual)
                     # append its CUI to the set
                     CUI_set.add(winnerCUI)
                     accumulated_contractors.append(new_contractor)
+                
+                # add the contract id to the lot
+                for lot_item in detailed_contract.get('contractLotList', []):
+                    lot_id = lot_item.get('lotId', None)
+                    if lot_id and lot_id in lots_map:
+                        lots_map[lot_id]['caNoticeContractId'] = contract.get('caNoticeContractId', None)
+
             time.sleep(interval * 2)
         except Exception as e:
-            print(f"Error for contract with the notice {caNoticeId} caused by exception {e}\n Skipping this item.")
+            tqdm.write(f"Error for contract with the notice {caNoticeId} caused by exception {e}\n Skipping this item.")
             continue
         
     
@@ -111,6 +135,7 @@ def get_data(start_date, end_date, batch_size):
     os.makedirs('seap_dataset/authorities', exist_ok=True)
     os.makedirs('seap_dataset/contracts', exist_ok=True)
     os.makedirs('seap_dataset/contractors', exist_ok=True)
+    os.makedirs('seap_dataset/lots', exist_ok=True)
     total_days = (end_date - start_date).days + 1
     dates = [start_date + datetime.timedelta(days=i) for i in range(total_days)]
     pbar = tqdm(dates, desc="Total progress", position=0, leave=False)
@@ -122,7 +147,7 @@ def get_data(start_date, end_date, batch_size):
             if len(accumulated_notices) > batch_size:
                 save_current_batch()
         except Exception as e:
-            print(f"Error for day {current_date}, caused by exception {e}\n Skipping day")
+            tqdm.write(f"Error for day {current_date}, caused by exception {e}\n Skipping day")
             continue
     
     save_current_batch()
