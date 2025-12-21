@@ -17,7 +17,7 @@ positional arguments:
 options:
   -h, --help            show this help message and exit
 ```
-Note that SEAP has a [limit for the number of API requests](https://e-licitatie.ro/pub/archive/news-feed/100002361) you can send. To avoid this, the program waits approximately 0.5 seconds between each request. This value can be changed in main.py... at your own risk :]
+Note that SEAP has a [limit for the number of API requests](https://e-licitatie.ro/pub/archive/news-feed/100002361) you can send. To avoid this, the program waits approximately 0.8 seconds between each request. This value can be changed in main.py... at your own risk :]
 ## Data format
 The script saves the data in parquet files in batches. The approximate batch size can be chosen by the user using command line arguments. The batch size is there mainly for memory concerns and for saving incremental progress in case of a crash.
 File structure:
