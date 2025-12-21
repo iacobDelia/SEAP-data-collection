@@ -35,12 +35,12 @@ The data for contracts and contract_awards is further split into years because o
 | :--- | :--- | :--- |
 | **caNoticeId** | `int64` | Unique internal identifier |
 | **noticeId** | `int64` | General identifier for the public notice |
-| **sysNoticeTypeId** | `int64` | System code representing the category of the notice |
-| **sysProcedureState** | `int64` | Numerical code indicating the current status of the procedure |
-| **sysProcedureType** | `int64` | System code for the procurement method |
+| **sysNoticeTypeId** | `string` | The category of the notice |
+| **sysProcedureState** | `string` | The current status of the procedure |
+| **sysProcedureType** | `string` | The procurement method |
 | **contractTitle** | `string` | The title given to the specific contract awarded |
-| **sysAcquisitionContractType** | `int64` | Code for the nature of the contract |
-| **sysContractAssigmentType** | `int64` | Code for the type of assignment |
+| **sysAcquisitionContractType** | `string` | The nature of the contract |
+| **sysContractAssigmentType** | `string` | The type of assignment |
 | **ronContractValue** | `double` | The final value of the awarded contract |
 | **title** | `string` | The title of the public notice |
 | **totalAcquisitionValue** | `double` | The value of the entire acquisition process |
@@ -79,37 +79,6 @@ The data for contracts and contract_awards is further split into years because o
 | **isSME** | `bool` | Whether the contractor is a small or medium enterprise |
 
 No personal information or contact info was collected.
-
-## System ids
-### sysNoticeTypeid
-- 3: Anunt de atribuire la Anunt de participare (CN)
-- 13: Anunt de atribuire la invitatia de participare (RFQ)
-- 18: Anunt de atribuire la anunt simplificat (SCN)
-- 16: Anunt de atribuire la concesionari (PC)
-- 4: Anunt de rezultat la concursul de solutii (DC)
-- 20: Anunt de atribuire la invitatia de depunere oferta la sistemul de achizitie dinamic (RFDA)
-
-### sysProcedureState
-- 2: In desfasurare
-- 3: Anulata
-- 5: Atribuita
-
-### sysProcedureType
-- 1: Licitatie deschisa
-- 7: Negociere fara publicare prealabila
-- 16: Procedura simplificata proprie
-- 17: Norme proprii (Anexa 2)
-- 20: Procedura simplificata
-
-### sysAcquisitionContractType
-- 1: Furnizare
-- 2: Servicii
-- 3: Lucrari
-
-### sysContractAssigmentType
-- 1: Contract de achizitii publice
-- 3: Acord-cadru
-- null
 
 ## Notes
 - There is also a field ```noticeAwardCriteriaList``` that the script doesn't save. It contains the weights of the reasons for choosing a bidder. For example:

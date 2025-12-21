@@ -66,13 +66,13 @@ def get_notice_entry(item, date, info_dict):
         'caNoticeId': item.get('caNoticeId', None),
         'noticeId': item.get('noticeId', None),
         'sysNoticeTypeId': item.get('sysNoticeTypeId', None),
-        'sysProcedureState': item.get('sysProcedureState', {}).get('id', None),
-        'sysProcedureType': item.get('sysProcedureType', {}).get('id', None),
+        'sysProcedureState': item.get('sysProcedureState', {}).get('text', None),
+        'sysProcedureType': item.get('sysProcedureType', {}).get('text', None),
         'contractTitle': item.get('contractTitle', None),
 
-        'sysAcquisitionContractType': item.get('sysAcquisitionContractType', {}).get('id', None),
-        'sysProcedureType': item.get('sysProcedureType', {}).get('id', None),
-        'sysContractAssigmentType': (item.get('sysContractAssigmentType', {}) or {}).get('id', None),
+        'sysAcquisitionContractType': item.get('sysAcquisitionContractType', {}).get('text', None),
+        'sysProcedureType': item.get('sysProcedureType', {}).get('text', None),
+        'sysContractAssigmentType': (item.get('sysContractAssigmentType', {}) or {}).get('text', None),
 
         'ronContractValue': item.get('ronContractValue', None),
         'title': info_dict.get('title', None),
