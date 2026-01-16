@@ -30,12 +30,12 @@ def write_to_dataset(list, parition_column, root_path):
     return data_table
 
 # writes the batches for contractors and authorities
-def save_entities(entity_list, folder_name):
+def save_entities(entity_list, folder_name, start_date, final_date):
     if entity_list:
         table_new = pa.Table.from_pylist(entity_list)
         # save with a name based on the current timestamp to make sure the file is unique
         ts = time.time_ns()
-        file_path = f'seap_dataset/{folder_name}/batch_{ts}.parquet'
+        file_path = f'seap_dataset/{folder_name}/batch_{ts}_{start_date:%Y-%m-%d}_{final_date:%Y-%m-%d}.parquet'
         pq.write_table(table_new, file_path)
 
 # load entity ids (contactors and authorities)

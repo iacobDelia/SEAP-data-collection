@@ -6,6 +6,7 @@ import os
 import argparse
 import datetime
 from tqdm import tqdm
+from itertools import pairwise
 
 accumulated_notices = []
 accumulated_authorities = []
@@ -20,18 +21,18 @@ lots_map = {}
 # interval of time between API requests
 interval = 0.8
 
-def save_current_batch():
+def save_current_batch(start_date, final_date):
     global accumulated_notices, accumulated_contracts, accumulated_contractors, accumulated_authorities, accumulated_lots
     if accumulated_notices:
-        utils.save_entities(accumulated_notices, 'contract_awards')
+        utils.save_entities(accumulated_notices, 'contract_awards', start_date, final_date)
     if accumulated_authorities:
-        utils.save_entities(accumulated_authorities, 'authorities')
+        utils.save_entities(accumulated_authorities, 'authorities', start_date, final_date)
     if accumulated_contracts:
-        utils.save_entities(accumulated_contracts, 'contracts')
+        utils.save_entities(accumulated_contracts, 'contracts', start_date, final_date)
     if accumulated_contractors:
-        utils.save_entities(accumulated_contractors, 'contractors')
+        utils.save_entities(accumulated_contractors, 'contractors', start_date, final_date)
     if accumulated_lots:
-        utils.save_entities(accumulated_lots, 'lots')
+        utils.save_entities(accumulated_lots, 'lots', start_date, final_date)
 
     # reset the lists to free up space in memory
     accumulated_authorities = []
@@ -136,21 +137,25 @@ def get_data(start_date, end_date, batch_size):
     os.makedirs('seap_dataset/lots', exist_ok=True)
     total_days = (end_date - start_date).days + 1
 
-    # for the period give, go through each day
+    # for the given period, go through each day
     dates = [start_date + datetime.timedelta(days=i) for i in range(total_days)]
     pbar = tqdm(dates, desc="Total progress", position=0, leave=False)
+    start_date = dates[0]
 
-    for current_date in pbar:
+    for current_date, next_date in pairwise(pbar):
         try:
             notice_ids = process_CA_and_authorities(current_date)
             process_contracts_and_contractors(notice_ids, current_date)
+
             if len(accumulated_notices) > batch_size:
-                save_current_batch()
+                save_current_batch(start_date, current_date)
+                start_date = next_date
+
         except Exception as e:
             tqdm.write(f"Error for day {current_date}, caused by exception {e}\n Skipping day")
             continue
-    
-    save_current_batch()
+
+    save_current_batch(start_date, current_date)
     utils.merge_everything()
 
 if __name__ == "__main__":
