@@ -31,9 +31,9 @@ SEAP_DATASET
 ```
 ## Schema
 ![schema](schema.svg "Data schema")
-## Features
+## Variables
 ### Contract awards
-| Feature | Data Type | Description |
+| Name | Data Type | Description |
 | :--- | :--- | :--- |
 | **caNoticeId** | `int64` | Unique internal identifier |
 | **noticeId** | `int64` | General identifier for the public notice |
@@ -53,14 +53,14 @@ SEAP_DATASET
 | **caPublicationDate** | `timestamp` | Date when the Contract Award Notice was officially published |
 | **publicationDate** | `timestamp` | Date for when the Contract Award Notice was published on SEAP |
 ### Contracting Authorities
-| Feature | Data Type | Description |
+| Name | Data Type | Description |
 | :--- | :--- | :--- |
 | **authorityId** | `int64` | Unique internal identifier |
 | **officialName** | `string` | The full name of the organization |
 | **county** | `string` | The administrative county (Judet) where the Contracing Authority is located |
 | **country** | `string` | The country of residence |
 ### Lots
-| Feature | Data Type | Description |
+| Name | Data Type | Description |
 | :--- | :--- | :--- |
 | **lotId** | `int64` | Unique internal identifier for the specific lot |
 | **caNoticeId** | `int64` | Foreign key referencing the parent Contract Award Notice |
@@ -70,18 +70,23 @@ SEAP_DATASET
 | **sysAwardCriteriaType** | `string` | The evaluation method used |
 | **caNoticeContractId** | `int64` | Foreign key referencing the specific awarded contract |
 ### Contracts
-| Feature | Data Type | Description |
+| Name | Data Type | Description |
 | :--- | :--- | :--- |
 | **caNoticeContractId** | `int64` | Unique internal identifier |
 | **caNoticeId** | `int64` | Foreign key referencing the Contract Award Notice |
+| **contractId** | `int64` | Id assigned to the contract|
 | **contractTitle** | `string` | The official name or title of the specific contract lot. |
 | **contractDate** | `timestamp` | The date when the contract awarded |
+| **publicationDate** | `timestamp` | The date when the contract was registered|
 | **winnerCUI** | `string` | CUI of the winner, or a placeholder for individuals; Foreign key for contractors |
 | **estimatedContractValue** | `double` | The initial estimated value for this contract before bidding |
+| **totalContractValue** | `double` | The final value for the contract |
+| **currency** | `string` | The type of currency for estimatedContractValue and totalContractValue |
+| **isFrameworkAgreement** | `bool` | Whether the contract is part from a framework agreement |
 | **contractValue** | `double` | The total value agreed upon for the awarded contract |
 | **numberOfReceivedOffers** | `int64` | The total number of bids received for this specific lot |
 ### Contractors
-| Feature | Data Type | Description |
+| Name | Data Type | Description |
 | :--- | :--- | :--- |
 | **CUI** | `string` | Fiscal identification number for the contractor or a placeholder for individuals |
 | **isIndividual** | `bool` | Whether the contractor is an individual or a company |
@@ -89,6 +94,12 @@ SEAP_DATASET
 | **county** | `string` | The administrative county (Judet) where the contractor is located |
 | **country** | `string` | The country where the contractor is located |
 | **isSME** | `bool` | Whether the contractor is a small or medium enterprise |
+
+### Contract_winners
+| Name | Data Type | Description |
+| :--- | :--- | :--- |
+| **CUI** | `string` | Foreign key to contractors table |
+| **caNoticeContractId** | `int64` | Foreign key to contracts table |
 
 No personal information or contact info was collected.
 
@@ -99,8 +110,6 @@ No personal information or contact info was collected.
     - Quality: 20%
 
   I chose not to include them because of the high variance in terminology that wouldn't be helpful for group-based analysis. Instead, I only went with ```sysAwardCriteriaType```, which has more standardized values.
-
-- There are instances of an association of companies winning a single contract, the script only saves the leader
 
 - Contractors that show up as individuals don't have a CUI. For them, I used ```I_{noticeEntityAddressId}``` as a fallback primary key, and added an ```isIndividual``` column to the contractors table.
 
