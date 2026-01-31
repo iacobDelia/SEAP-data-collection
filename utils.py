@@ -120,13 +120,16 @@ def get_lots_entry(lot_item, caNoticeId):
 def get_contract_entry(contract, winnerCUI, detailed_contract):
     return {
     'caNoticeContractId': contract.get('caNoticeContractId', None),
+    'contractId': detailed_contract.get('contractId', None),
     'caNoticeId': contract.get('caNoticeId', None),
     'contractTitle': contract.get('contractTitle', None),
     'contractDate': convert_date(contract.get('contractDate')),
     'winnerCUI': winnerCUI,
     'estimatedContractValue': (detailed_contract.get('section524') or {}).get('estimatedContractValue', None),
     'contractValue': contract.get('defaultCurrencyContractValue', None),
+    'isFrameworkAgreement': detailed_contract.get('isFrameworkAgreement', None),
     'numberOfReceivedOffers': (detailed_contract.get('section522') or {}).get('numberOfReceivedOffers', None),
+    'numberOfWinners': len(detailed_contract.get('winnerList', []))
     }
 
 # generates a contractor entry
