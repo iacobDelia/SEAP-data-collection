@@ -117,14 +117,14 @@ def get_lots_entry(lot_item, caNoticeId):
     }
 
 # generates a contract entry
-def get_contract_entry(contract, winnerCUI, detailed_contract):
+def get_contract_entry(contract, detailed_contract):
     return {
     'caNoticeContractId': contract.get('caNoticeContractId', None),
     'contractId': detailed_contract.get('contractId', None),
     'caNoticeId': contract.get('caNoticeId', None),
     'contractTitle': contract.get('contractTitle', None),
     'contractDate': convert_date(contract.get('contractDate')),
-    'winnerCUI': winnerCUI,
+    #'winnerCUI': winnerCUI,
     'estimatedContractValue': (detailed_contract.get('section524') or {}).get('estimatedContractValue', None),
     'contractValue': contract.get('defaultCurrencyContractValue', None),
     'isFrameworkAgreement': detailed_contract.get('isFrameworkAgreement', None),
@@ -147,7 +147,7 @@ def get_contractor_entry(winnerCUI, address, isIndividual):
 # merges all the parquet files
 def merge_everything():
     tables = ['authorities', 'contract_awards', 'contracts',
-             'contractors', 'lots']
+             'contractors', 'lots', 'contract_winners']
 
     for table_name in tables:
         path = 'seap_dataset/' + table_name

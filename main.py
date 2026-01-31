@@ -13,6 +13,7 @@ accumulated_authorities = []
 accumulated_contracts = []
 accumulated_contractors = []
 accumulated_lots = []
+accumulated_contract_winners = []
 
 # use sets for looking up existing ids, it's faster
 authorityId_set = utils.load_entity_ids('authorities', 'authorityId')
@@ -22,7 +23,7 @@ lots_map = {}
 interval = 0.8
 
 def save_current_batch(start_date, final_date):
-    global accumulated_notices, accumulated_contracts, accumulated_contractors, accumulated_authorities, accumulated_lots
+    global accumulated_notices, accumulated_contracts, accumulated_contractors, accumulated_authorities, accumulated_lots, accumulated_contract_winners
     if accumulated_notices:
         utils.save_entities(accumulated_notices, 'contract_awards', start_date, final_date)
     if accumulated_authorities:
@@ -33,6 +34,8 @@ def save_current_batch(start_date, final_date):
         utils.save_entities(accumulated_contractors, 'contractors', start_date, final_date)
     if accumulated_lots:
         utils.save_entities(accumulated_lots, 'lots', start_date, final_date)
+    if accumulated_contract_winners:
+        utils.save_entities(accumulated_contract_winners, 'contract_winners', start_date, final_date)
 
     # reset the lists to free up space in memory
     accumulated_authorities = []
@@ -40,6 +43,7 @@ def save_current_batch(start_date, final_date):
     accumulated_contractors = []
     accumulated_contracts = []
     accumulated_lots = []
+    accumulated_contract_winners = []
     lots_map = {}
     
 def process_CA_and_authorities(date):
@@ -97,26 +101,34 @@ def process_contracts_and_contractors(ca_table_ids, date):
             for contract in contract_items:
                 isIndividual = False
                 winner_data = (contract.get('winner') or {})
-                address = (winner_data.get('address') or {})
-                winnerCUI = utils.clean_CUI(contract.get('winner', {}).get('fiscalNumber', ""))
-                # if the contractor is an individual the CUI will be blank, use I_{noticeEntityAddressId} as a placeholder
-                if winnerCUI == '':
-                    winnerCUI = f"I_{address.get('noticeEntityAddressId', "")}"
-                    isIndividual = True
 
                 detailed_contract = seap_requests.get_contract_details(str(contract.get('caNoticeContractId')))
                 
                 # generate another contract entry and append it to the list
-                final_contract = utils.get_contract_entry(contract, winnerCUI, detailed_contract)
+                final_contract = utils.get_contract_entry(contract, detailed_contract)
                 accumulated_contracts.append(final_contract)
                 
-                # generate another contractor entry and append it to the list
-                if winnerCUI not in CUI_set:
-                    new_contractor = utils.get_contractor_entry(winnerCUI,address, isIndividual)
-                    # append its CUI to the set
-                    CUI_set.add(winnerCUI)
-                    accumulated_contractors.append(new_contractor)
-                
+                # get info for contractors
+                contractors_address_list = detailed_contract.get('section523').get('nameAndAddresses')
+                for contractor_address in contractors_address_list:
+                    CUI = utils.clean_CUI(contractor_address.get('nationalIDNumber', ''))
+                    # if the contractor is an individual the CUI will be blank, use I_{noticeEntityAddressId} as a placeholder
+                    if CUI == '':
+                        CUI = f"I_{contractor_address.get('noticeEntityAddressId', "")}"
+                        isIndividual = True
+
+                    # generate another contractor entry and append it to the list
+                    if CUI not in CUI_set:
+                        new_contractor = utils.get_contractor_entry(CUI, contractor_address, isIndividual)
+                        # append its CUI to the set
+                        CUI_set.add(CUI)
+                        accumulated_contractors.append(new_contractor)
+                        contract_winner_entry = {
+                            'CUI': CUI,
+                            'caNoticeContractId': str(contract.get('caNoticeContractId'))
+                        }
+                        accumulated_contract_winners.append(contract_winner_entry)
+
                 # add the contract id to the lot
                 for lot_item in detailed_contract.get('contractLotList', []):
                     lot_id = lot_item.get('lotId', None)
@@ -135,6 +147,7 @@ def get_data(start_date, end_date, batch_size):
     os.makedirs('seap_dataset/contracts', exist_ok=True)
     os.makedirs('seap_dataset/contractors', exist_ok=True)
     os.makedirs('seap_dataset/lots', exist_ok=True)
+    os.makedirs('seap_dataset/contract_winners', exist_ok=True)
     total_days = (end_date - start_date).days + 1
 
     # for the given period, go through each day
