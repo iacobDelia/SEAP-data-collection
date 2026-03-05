@@ -19,6 +19,10 @@ def clean_CUI(CUI):
         return None
     return ''.join(filter(str.isdigit, CUI))
 
+def clean_CPV(CPV):
+    if not CPV:
+        return None
+    return ''.join(filter(str.isdigit, CPV))[:8]
 # writes the batches for contract_awards and contracts, separated by year, not used anymore
 def write_to_dataset(list, parition_column, root_path):
     data_table = pa.Table.from_pylist(list)

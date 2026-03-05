@@ -14,7 +14,7 @@ accumulated_contracts = []
 accumulated_contractors = []
 accumulated_lots = []
 accumulated_contract_winners = []
-
+cpv_prefix = ''
 # use sets for looking up existing ids, it's faster
 authorityId_set = utils.load_entity_ids('authorities', 'authorityId')
 CUI_set = utils.load_entity_ids('contractors', 'CUI')
@@ -48,7 +48,7 @@ def save_current_batch(start_date, final_date):
     
 def process_CA_and_authorities(date):
     date_str = date.strftime("%Y-%m-%d")
-    global accumulated_notices, accumulated_authorities, authorityId_set
+    global accumulated_notices, accumulated_authorities, authorityId_set, cpv_prefix
 
     ca_list = seap_requests.get_contract_award_list(date_str)
     pbar = tqdm(ca_list, desc=f" Saving awards and authorities for day: {date_str}", position = 1, leave=False)
@@ -57,8 +57,9 @@ def process_CA_and_authorities(date):
         try:
             # sysContractAssigmentType may be null sometimes
             assignment_type_id = (item.get('sysContractAssigmentType') or {}).get('id', None)
+            cpv_code = utils.clean_CPV(item.get('cpvCodeAndName') or '')
             # ignore framework agreements
-            if assignment_type_id != 3:
+            if assignment_type_id != 3 and cpv_code.startswith(cpv_prefix):
                 info_dict = seap_requests.get_info_CANotice(str(item['caNoticeId']))
                 final_item = utils.get_notice_entry(item, info_dict)
 
@@ -190,6 +191,21 @@ if __name__ == "__main__":
         type=int,
         help = "Batch size",
     )
+    parser.add_argument(
+        'CPV',
+        nargs = '?',
+        default = '00000000',
+        help = "CPV used to filter the contract award notices",
+        type=str,
+    )
     args = parser.parse_args()
+
+    # extract the cpv prefix for filtering
+    if args.CPV.count('0') != 8:
+        first_digit = args.CPV[0]
+        rest = args.CPV[1:]
+        cpv_prefix = rest.partition("0")[0]
+        cpv_prefix = first_digit + cpv_prefix
+
     get_data(args.date_start, args.date_end, args.batch_size)
     print("All done! Hooray!")

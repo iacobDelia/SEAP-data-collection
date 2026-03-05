@@ -6,13 +6,13 @@
 Python tool for collecting contract data from the SEAP site.
 ## Usage
 ```
-python main.py --help
-usage: main.py [-h] YYYY-MM-DD YYYY-MM-DD batch_size
+usage: main.py [-h] YYYY-MM-DD YYYY-MM-DD batch_size [CPV]
 
 positional arguments:
   YYYY-MM-DD            Beginning date, format: YYYY-MM-DD
   YYYY-MM-DD            Ending date, format: YYYY-MM_DD
   batch_size            Batch size
+  CPV                   CPV used to filter the contract award notices
 
 options:
   -h, --help            show this help message and exit
