@@ -20,7 +20,7 @@ authorityId_set = utils.load_entity_ids('authorities', 'authorityId')
 CUI_set = utils.load_entity_ids('contractors', 'CUI')
 lots_map = {}
 # interval of time between API requests
-interval = 0.8
+interval = 0.5
 
 def save_current_batch(start_date, final_date):
     global accumulated_notices, accumulated_contracts, accumulated_contractors, accumulated_authorities, accumulated_lots, accumulated_contract_winners
@@ -115,7 +115,7 @@ def process_contracts_and_contractors(ca_table_ids, date):
                     CUI = utils.clean_CUI(contractor_address.get('nationalIDNumber', ''))
                     # if the contractor is an individual the CUI will be blank, use I_{noticeEntityAddressId} as a placeholder
                     if CUI == '':
-                        CUI = f"I_{contractor_address.get('noticeEntityAddressId', "")}"
+                        CUI = f"I_{contractor_address.get('noticeEntityAddressId', '')}"
                         isIndividual = True
 
                     # generate another contractor entry and append it to the list

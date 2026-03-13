@@ -55,8 +55,8 @@ def load_entity_ids(entity_type, entity_id):
 def get_notice_entry(item, info_dict):
     # these sections have a suffix for utility acquisitions    
     suffix = "_U" if info_dict.get('caNoticeEdit_New') is None else ""
-    root = info_dict.get(f'caNoticeEdit_New{suffix}')
-    section2 = root.get(f'section2_New{suffix}')
+    root = info_dict.get(f'caNoticeEdit_New{suffix}') or {}
+    section2 = root.get(f'section2_New{suffix}') or {}
 
     lots = section2.get(f'section2_2_New{suffix}', {}).get('descriptionList', [])
     totalAcquisitionValue = section2.get(f'section2_1_New{suffix}', {}).get('totalAcquisitionValue', None)
@@ -65,10 +65,11 @@ def get_notice_entry(item, info_dict):
     pub_details = (root.get('publicationDetailsModel') or {})
     publicationDate = convert_date(pub_details.get('publicationDate'))
 
-    authority_address = root.get(f'section1_New{suffix}').get('section1_1', {}).get('caAddress', {})
+    authority_address = (root.get(f'section1_New{suffix}') or {}).get('section1_1', {}).get('caAddress', {})
     return {
         'caNoticeId': item.get('caNoticeId', None),
         'noticeId': item.get('noticeId', None),
+        'cNoticeId': info_dict.get('cNoticeId', None),
         'sysNoticeTypeId': item.get('sysNoticeTypeId', None),
         'sysProcedureState': item.get('sysProcedureState', {}).get('text', None),
         'sysProcedureType': item.get('sysProcedureType', {}).get('text', None),
@@ -95,8 +96,8 @@ def get_notice_entry(item, info_dict):
 # generates an authority entry
 def get_authority_entry(info_dict):
     suffix = "_U" if info_dict.get('caNoticeEdit_New') is None else ""
-    root = info_dict.get(f'caNoticeEdit_New{suffix}')
-    authority_address = root.get(f'section1_New{suffix}').get('section1_1', {}).get('caAddress', {})
+    root = info_dict.get(f'caNoticeEdit_New{suffix}') or {}
+    authority_address = (root.get(f'section1_New{suffix}') or {}).get('section1_1', {}).get('caAddress', {})
 
     nuts_text = (authority_address.get('nutsCodeItem') or {}).get('text', "")
     _, _, county = nuts_text.partition(" ")
