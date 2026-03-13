@@ -9,10 +9,17 @@ import os
 import pyarrow.parquet as pq
 import pyarrow.compute as pc
 from tqdm import tqdm
-import docx
 import io
 import magic
+import aspose.words as aw
+import zipfile
+import py7zr
+import re
+import rarfile
+from dotenv import load_dotenv
 
+load_dotenv()
+rarfile.UNRAR_TOOL = os.getenv("UNRAR_PATH")
 # need to remember cookies for extracting the document
 session = requests.Session()
 session.headers.update({
@@ -29,8 +36,6 @@ def get_file_type(file_bytes):
 
 # get the list of docs
 def get_Cnotice_docs(cnotice_id):
-    headers = {'Content-Type': 'application/json;charset=UTF-8',
-               'Referer': 'https://e-licitatie.ro/pub/notices/contract-notices/list/0/0'}
     url = f'https://www.e-licitatie.ro/api-pub/NoticeCommon/GetDfNoticeSectionFiles/?initNoticeId={cnotice_id}&sysNoticeTypeId=2'
     r = session.get(url, timeout=10)
     return r.json()
@@ -38,34 +43,44 @@ def get_Cnotice_docs(cnotice_id):
 # get the specific document
 def get_document(url):
     url = f'https://www.e-licitatie.ro/{url}'
-    #print(url)
     r = session.get(url, timeout=30, stream=True)
-    #print(r)
     return r.content
+
+def is_string_cs(text):
+    text_low = text.lower()
+
+    hints = ['caiet', 'sarcini', 'c.s.']
+    avoid_hints = ['anexa', 'contract', 'formular']
+
+    found_hint = any(hint in text_low for hint in hints)
+    
+    # check if we can find 'cs' by itself
+    if not found_hint:
+        found_hint = bool(re.search(r'(_|[^a-z]|^)cs(_|[^a-z]|$)', text_low))
+
+    is_avoid = any(ah in text_low for ah in avoid_hints)
+    return found_hint and not is_avoid
 
 # go through the list of documents and extract the relevant one
 def extract_specifications_url(response):
     doc_list = response.get('dfNoticeDocs', [])
-    hints = ['caiet', 'sarcini', 'Caiet', 'Sarcini', 'CAIET', 'SARCINI', 'CS', 'cs', 'C.S.', 'c.s.']
-    avoid_hints = ['anexa', 'Anexa', 'ANEXA']
     for doc in doc_list:
-        if any(hint in doc.get('noticeDocumentName', '') for hint in hints) and not any(hint in doc.get('noticeDocumentName', '') for hint in avoid_hints):
+        if is_string_cs(doc.get('noticeDocumentName', '')):
             specs = get_document(doc.get('noticeDocumentUrl', ''))
+            if not specs:
+                raise Exception("No spec file found")
             return specs
     return ''
 
 # extract the pdf from digitally signed file
 def extract_pdf_from_p7s(p7s_bytes):
-    try:
-        content_info = cms.ContentInfo.load(p7s_bytes)
-        compressed_data = content_info['content']['encap_content_info']['content'].native
+    content_info = cms.ContentInfo.load(p7s_bytes)
+    compressed_data = content_info['content']['encap_content_info']['content'].native
 
-        if isinstance(compressed_data, bytes):
-            return compressed_data
-        else:
-            return None
-    except Exception as e:
-        print(f"error extracting pdf from p7s: {e}")
+    if isinstance(compressed_data, bytes):
+        return compressed_data
+    else:
+        return None
 
 # extract the raw text from a pdf
 def extract_pdf_text(pdf_file):
@@ -79,27 +94,22 @@ def extract_pdf_text(pdf_file):
     except Exception as e:
          print(f"error extracting raw text from pdf: {e}")
 
-def extract_docx_text(file):
-    with io.BytesIO(file) as docx_stream:
-        doc = docx.Document(docx_stream)
-        fullText = []
-        for para in doc.paragraphs:
-            fullText.append(para.text)
-        for table in doc.tables:
-                for row in table.rows:
-                    row_data = [cell.text.strip() for cell in row.cells if cell.text.strip()]
-                    if row_data:
-                        fullText.append(" | ".join(row_data))
-    return '\n'.join(fullText)
+def extract_doc_text(file):
+    stream = io.BytesIO(file)
+    doc = aw.Document(stream)
+    return doc.get_text()
+
 
 def extract_text_file(doc):
+    if not doc:
+        raise Exception("No doc has been received to be extracted")
     mime_type = get_file_type(doc)
-
+    text_final = ""
+    # signed document
     if "pkcs7" in mime_type or "octet-stream" in mime_type:
         doc = extract_pdf_from_p7s(doc)
-        mime_type = get_file_type(doc)
-    
-    if mime_type == 'application/pdf':
+        return extract_text_file(doc)
+    elif mime_type == 'application/pdf':
         # extract text from pdf
         text_final = extract_pdf_text(doc)
         # scanned document
@@ -113,22 +123,56 @@ def extract_text_file(doc):
             finally:
                 if os.path.exists(tmp_path):
                     os.remove(tmp_path)
-    # docx
-    elif mime_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-        text_final = extract_docx_text(doc)
+    # docx and doc
+    elif mime_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' or mime_type == 'application/msword':
+        text_final = extract_doc_text(doc)
+    elif mime_type == 'application/zip' or mime_type == 'application/x-7z-compressed' or "rar" in mime_type:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+                if mime_type == 'application/zip':
+                    with zipfile.ZipFile(io.BytesIO(doc)) as z:
+                        z.extractall(tmp_dir)
+                elif mime_type =='application/x-7z-compressed':
+                    with py7zr.SevenZipFile(io.BytesIO(doc), mode='r') as z:
+                            z.extractall(tmp_dir)
+                elif "rar" in mime_type:
+                    # need named file for rar
+                    tmp_rar = tempfile.NamedTemporaryFile(delete=False, suffix=".rar")
+                    tmp_rar_path = tmp_rar.name
+                    try:
+                        tmp_rar.write(doc)
+                        tmp_rar.close() 
+                        with rarfile.RarFile(tmp_rar_path) as rf:
+                            rf.extractall(tmp_dir)
+                    finally:
+                        if os.path.exists(tmp_rar_path):
+                            os.remove(tmp_rar_path)
+                archive_texts = []
+                # look through the extracted files and call this function agan for each of them!
+                for root_dir, _, files in os.walk(tmp_dir):
+                    for file in files:
+                        if is_string_cs(file):
+                            
+                            with open(os.path.join(root_dir, file), "rb") as extracted_f:
+                                content = extract_text_file(extracted_f.read())
+                                archive_texts.append(f"\n--- SURSA: {file} ---\n{content}")
+                text_final = "\n".join(archive_texts)
+
     else:
         raise Exception(f"Unsupported file type: {mime_type}")
+    
+    return text_final
+
+def extract_text_cnid(cnid):
+    rez = get_Cnotice_docs(cnid)
+    doc = extract_specifications_url(rez)
+    if not doc:
+        raise Exception(f"No spec doc found")
+    text_final = extract_text_file(doc)
+
     os.makedirs("caiete_text", exist_ok = True)
     file_path = os.path.join("caiete_text", f"caiet_sarcini_{cnid}.txt")
     with open(file_path, "w", encoding="utf-8") as f:
                 f.write(text_final)
-
-def extract_text_cnid(cnid):
-    rez = get_Cnotice_docs(cnid)
-    #print(rez)
-    doc = extract_specifications_url(rez)
-    return extract_text_file(doc)
-
 
 
 def process_ca_dataset():

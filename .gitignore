@@ -2,3 +2,8 @@ __pycache__
 .venv
 *.parquet
 seap_dataset/*
+test/*
+*.pdf
+specs_extractor/*.txt
+.env
+caiete_text/*

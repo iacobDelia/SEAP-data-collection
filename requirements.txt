@@ -1,3 +1,13 @@
 requests
 pyarrow
 tqdm
+paddleocr==2.8.0
+paddlepaddle-gpu==2.6.1
+pdf2image
+pymupdf
+asn1crypto
+python-magic-bin
+aspose-words
+py7zr
+rarfile
+python-dotenv
