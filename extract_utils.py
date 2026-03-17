@@ -69,8 +69,8 @@ def extract_specifications_url(response):
             specs = get_document(doc.get('noticeDocumentUrl', ''))
             if not specs:
                 raise Exception("No spec file found")
-            return specs
-    return ''
+            return specs, doc.get('noticeDocumentName', '')
+    return '', ''
 
 # extract the pdf from digitally signed file
 def extract_pdf_from_p7s(p7s_bytes):
@@ -126,7 +126,7 @@ def extract_doc_word(file_bytes):
         if os.path.exists(temp_path): os.remove(temp_path)
         if os.path.exists(txt_path): os.remove(txt_path)
 
-def extract_text_file(doc):
+def extract_text_file(doc, doc_name):
     if not doc:
         raise Exception("No doc has been received to be extracted")
     mime_type = get_file_type(doc)
@@ -150,7 +150,7 @@ def extract_text_file(doc):
                 if os.path.exists(tmp_path):
                     os.remove(tmp_path)
     # docx and doc
-    elif mime_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' or mime_type == 'application/msword':
+    elif mime_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' or mime_type == 'application/msword' or 'docx' in doc_name:
         text_final = extract_doc_word(doc)
     elif mime_type == 'application/zip' or mime_type == 'application/x-7z-compressed' or "rar" in mime_type:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -190,16 +190,15 @@ def extract_text_file(doc):
 
 def extract_text_cnid(cnid):
     rez = get_Cnotice_docs(cnid)
-    doc = extract_specifications_url(rez)
+    doc, doc_name = extract_specifications_url(rez)
     if not doc:
         raise Exception(f"No spec doc found")
-    text_final = extract_text_file(doc)
+    text_final = extract_text_file(doc, doc_name)
 
     os.makedirs("caiete_text", exist_ok = True)
     file_path = os.path.join("caiete_text", f"caiet_sarcini_{cnid}.txt")
     with open(file_path, "w", encoding="utf-8") as f:
                 f.write(text_final)
-
 
 def process_ca_dataset():
     table = pq.read_table('seap_dataset/contract_awards/', columns=['cNoticeId'])
