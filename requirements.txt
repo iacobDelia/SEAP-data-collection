@@ -7,7 +7,8 @@ pdf2image
 pymupdf
 asn1crypto
 python-magic-bin
-aspose-words
 py7zr
 rarfile
 python-dotenv
+google-genai
+comtypes
