@@ -11,13 +11,13 @@ import pyarrow.compute as pc
 from tqdm import tqdm
 import io
 import magic
-import aspose.words as aw
 import zipfile
 import py7zr
 import re
 import rarfile
 from dotenv import load_dotenv
-
+import comtypes.client
+import uuid
 load_dotenv()
 rarfile.UNRAR_TOOL = os.getenv("UNRAR_PATH")
 # need to remember cookies for extracting the document
@@ -94,11 +94,37 @@ def extract_pdf_text(pdf_file):
     except Exception as e:
          print(f"error extracting raw text from pdf: {e}")
 
-def extract_doc_text(file):
-    stream = io.BytesIO(file)
-    doc = aw.Document(stream)
-    return doc.get_text()
+def extract_doc_word(file_bytes):
+    # generate a temporary file with a unique name
+    unique_id = str(uuid.uuid4())
+    temp_path = os.path.abspath(f"temp_{unique_id}.doc")
+    txt_path = os.path.abspath(f"temp_{unique_id}.txt")
 
+    with open(temp_path, "wb") as f:
+        f.write(file_bytes)
+    
+    word = None
+    try:
+        word = comtypes.client.CreateObject('Word.Application')
+        word.Visible = False
+        word.DisplayAlerts = False
+
+        doc = word.Documents.Open(temp_path)
+
+        doc.SaveAs(txt_path, FileFormat=7)
+        doc.Close(False)
+        
+        # read the content
+        if os.path.exists(txt_path):
+            with open(txt_path, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+            return content
+        return ""
+    finally:
+        if word:
+            word.Quit()
+        if os.path.exists(temp_path): os.remove(temp_path)
+        if os.path.exists(txt_path): os.remove(txt_path)
 
 def extract_text_file(doc):
     if not doc:
@@ -125,7 +151,7 @@ def extract_text_file(doc):
                     os.remove(tmp_path)
     # docx and doc
     elif mime_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' or mime_type == 'application/msword':
-        text_final = extract_doc_text(doc)
+        text_final = extract_doc_word(doc)
     elif mime_type == 'application/zip' or mime_type == 'application/x-7z-compressed' or "rar" in mime_type:
         with tempfile.TemporaryDirectory() as tmp_dir:
                 if mime_type == 'application/zip':
@@ -191,5 +217,4 @@ def process_ca_dataset():
             tqdm.write(f"Exception processing {record['cNoticeId']}, exception {e}")
 
 if __name__ == "__main__":
-    #extract_text_cnid(sys.argv[1])
     process_ca_dataset()
