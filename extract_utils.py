@@ -18,6 +18,7 @@ import rarfile
 from dotenv import load_dotenv
 import comtypes.client
 import uuid
+import seap_requests
 load_dotenv()
 rarfile.UNRAR_TOOL = os.getenv("UNRAR_PATH")
 # need to remember cookies for extracting the document
@@ -35,8 +36,8 @@ def get_file_type(file_bytes):
     return mime
 
 # get the list of docs
-def get_Cnotice_docs(cnotice_id):
-    url = f'https://www.e-licitatie.ro/api-pub/NoticeCommon/GetDfNoticeSectionFiles/?initNoticeId={cnotice_id}&sysNoticeTypeId=2'
+def get_Cnotice_docs(cnotice_id, sysNoticeTypeId):
+    url = f'https://www.e-licitatie.ro/api-pub/NoticeCommon/GetDfNoticeSectionFiles/?initNoticeId={cnotice_id}&sysNoticeTypeId={sysNoticeTypeId}'
     r = session.get(url, timeout=10)
     return r.json()
 
@@ -134,7 +135,7 @@ def extract_text_file(doc, doc_name):
     # signed document
     if "pkcs7" in mime_type or "octet-stream" in mime_type:
         doc = extract_pdf_from_p7s(doc)
-        return extract_text_file(doc)
+        return extract_text_file(doc, doc_name)
     elif mime_type == 'application/pdf':
         # extract text from pdf
         text_final = extract_pdf_text(doc)
@@ -179,7 +180,7 @@ def extract_text_file(doc, doc_name):
                         if is_string_cs(file):
                             
                             with open(os.path.join(root_dir, file), "rb") as extracted_f:
-                                content = extract_text_file(extracted_f.read())
+                                content = extract_text_file(extracted_f.read(), doc_name)
                                 archive_texts.append(f"\n--- SURSA: {file} ---\n{content}")
                 text_final = "\n".join(archive_texts)
 
@@ -188,20 +189,26 @@ def extract_text_file(doc, doc_name):
     
     return text_final
 
-def extract_text_cnid(cnid):
-    rez = get_Cnotice_docs(cnid)
+def extract_text_cnid(cnid, sysNoticeTypeId, caNoticeId):
+    rez = get_Cnotice_docs(cnid, sysNoticeTypeId)
     doc, doc_name = extract_specifications_url(rez)
     if not doc:
         raise Exception(f"No spec doc found")
     text_final = extract_text_file(doc, doc_name)
 
     os.makedirs("caiete_text", exist_ok = True)
-    file_path = os.path.join("caiete_text", f"caiet_sarcini_{cnid}.txt")
+    file_path = os.path.join("caiete_text", f"caiet_sarcini_{caNoticeId}.txt")
     with open(file_path, "w", encoding="utf-8") as f:
                 f.write(text_final)
 
+def extract_text_noticeno(noticeNo, caNoticeId):
+    rez_list = seap_requests.get_contract_notices_list(noticeNo)
+    # expecting only one result
+    cnid = rez_list[0].get('cNoticeId')
+    extract_text_cnid(cnid, "17", caNoticeId)
+
 def process_ca_dataset():
-    table = pq.read_table('seap_dataset/contract_awards/', columns=['cNoticeId'])
+    table = pq.read_table('seap_dataset/contract_awards/', columns=['cNoticeId', 'noticeNo', 'sysProcedureType', 'caNoticeId'])
     # filter notices that dont have cnoticeid and convert to a list
     filtered_table = table.filter(pc.field("cNoticeId").is_valid())
     records = filtered_table.to_pylist()
@@ -211,9 +218,22 @@ def process_ca_dataset():
         try:
             if os.path.exists(os.path.join("caiete_text", f"caiet_sarcini_{record['cNoticeId']}.txt")):
                 continue
-            extract_text_cnid(record['cNoticeId'])
+            extract_text_cnid(record['cNoticeId'], "2", record['caNoticeId'])
         except Exception as e:
             tqdm.write(f"Exception processing {record['cNoticeId']}, exception {e}")
+
+    # now for the simplified notices
+    filtered_table = table.filter(pc.field("noticeNo").is_valid()).filter(pc.field("sysProcedureType") == "Procedura simplificata")
+    records = filtered_table.to_pylist()
+
+    pbar = tqdm(records, desc="noticeNo", position=0, leave=False)
+    for record in pbar:
+        try:
+            if os.path.exists(os.path.join("caiete_text", f"caiet_sarcini_{record['noticeNo']}.txt")):
+                continue
+            extract_text_noticeno(record['noticeNo'], record['caNoticeId'])
+        except Exception as e:
+            tqdm.write(f"Exception processing simplified procedure {record['noticeNo']}, exception {e}")
 
 if __name__ == "__main__":
     process_ca_dataset()

@@ -81,3 +81,22 @@ def get_contracts_info(caNoticeId):
     }
     r = requests.post(url, headers = headers, json = body, timeout = 5)
     return r.json()['items']
+
+# get the list of cnotices associated with that noticeNo
+def get_contract_notices_list(noticeNo):
+    headers = {'Content-Type': 'application/json;charset=UTF-8',
+            'Referer': 'https://e-licitatie.ro/pub/notices/contract-notices/list/0/0'}
+    url = 'https://www.e-licitatie.ro/api-pub/NoticeCommon/GetCNoticeList/'
+    body = {
+        "sysNoticeTypeIds": [],
+        "sortProperties": [],
+        "pageSize": 2000,
+        "hasUnansweredQuestions": None,
+        "number": noticeNo,
+        "startPublicationDate": None,
+        "startTenderReceiptDeadline": None,
+        "sysProcedureStateId": 2,
+        "pageIndex": 0
+    }
+    r = requests.post(url, headers = headers, json = body, timeout = 5)
+    return r.json()['items']

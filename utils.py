@@ -70,6 +70,7 @@ def get_notice_entry(item, info_dict):
         'caNoticeId': item.get('caNoticeId', None),
         'noticeId': item.get('noticeId', None),
         'cNoticeId': info_dict.get('cNoticeId', None),
+        'noticeNo': pub_details.get('noticeNo', None),
         'sysNoticeTypeId': item.get('sysNoticeTypeId', None),
         'sysProcedureState': item.get('sysProcedureState', {}).get('text', None),
         'sysProcedureType': item.get('sysProcedureType', {}).get('text', None),
