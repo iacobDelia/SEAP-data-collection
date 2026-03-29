@@ -5,6 +5,7 @@ import seap_requests
 import os
 import argparse
 import datetime
+import traceback
 from tqdm import tqdm
 from itertools import pairwise
 
@@ -68,10 +69,12 @@ def process_CA_and_authorities(date):
                 
                 # get the entity id from the json
                 suffix = "_U" if info_dict.get('caNoticeEdit_New') is None else ""
-                root = info_dict.get(f'caNoticeEdit_New{suffix}')
-                authority_address = root.get(f'section1_New{suffix}').get('section1_1', {}).get('caAddress', {})
+                root = info_dict.get(f'caNoticeEdit_New{suffix}') or {}
+                section1 = root.get(f'section1_New{suffix}') or {}
+                section1_1 = section1.get('section1_1') or {}
+                authority_address = section1_1.get('caAddress', {})
 
-                section2 = root.get(f'section2_New{suffix}')
+                section2 = root.get(f'section2_New{suffix}') or {}
                 lots = section2.get(f'section2_2_New{suffix}', {}).get('descriptionList', [])
 
                 for lot in lots:
@@ -87,7 +90,7 @@ def process_CA_and_authorities(date):
                     authorityId_set.add(authority_address.get('entityId', None))
                 time.sleep(interval)
         except Exception as e:
-            tqdm.write(f"Error for notice {item.get('caNoticeId')} caused by exception {e}\n Skipping this item.")
+            tqdm.write(f"Error for notice {item.get('caNoticeId')} caused by exception {e}\n Skipping this item. Stack trace: {traceback.print_exc()}")
             continue
     return notice_ids
 
@@ -110,7 +113,12 @@ def process_contracts_and_contractors(ca_table_ids, date):
                 accumulated_contracts.append(final_contract)
                 
                 # get info for contractors
-                contractors_address_list = detailed_contract.get('section523').get('nameAndAddresses')
+                section523 = detailed_contract.get('section523') or {}
+                if section523:
+                    contractors_address_list = section523.get('nameAndAddresses', [])
+                else:
+                    contractors_address_list = detailed_contract.get('nameAndAddresses', [])
+                #contractors_address_list = section523.get('nameAndAddresses', [])
                 for contractor_address in contractors_address_list:
                     CUI = utils.clean_CUI(contractor_address.get('nationalIDNumber', ''))
                     # if the contractor is an individual the CUI will be blank, use I_{noticeEntityAddressId} as a placeholder
@@ -138,7 +146,7 @@ def process_contracts_and_contractors(ca_table_ids, date):
 
             time.sleep(interval * 2)
         except Exception as e:
-            tqdm.write(f"Error for contract with the notice {caNoticeId} caused by exception {e}\n Skipping this item.")
+            tqdm.write(f"Error for contract with the notice {caNoticeId} caused by exception {e}\n Skipping this item. Stack trace: {traceback.print_exc()}")
             continue
         
 

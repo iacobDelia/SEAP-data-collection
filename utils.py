@@ -111,14 +111,17 @@ def get_authority_entry(info_dict):
 
 # generates a lot entry
 def get_lots_entry(lot_item, caNoticeId):
-    cpv = lot_item.get('mainCPVCodes', {}).get('text')
+    main_cpv_obj = lot_item.get('mainCPVCodes') or {}
+    cpv = main_cpv_obj.get('text')
+    
+    award_criteria_obj = lot_item.get('sysAwardCriteriaType') or {}
     return {
         'lotId': lot_item.get('noticeLotID', None),
         'caNoticeId': caNoticeId,
         'contractTitle': lot_item.get('contractTitle', None),
         'CPV': cpv[:10] if cpv else '',
         'estimatedValue': lot_item.get('estimatedValue', None),
-        'sysAwardCriteriaType': lot_item.get('sysAwardCriteriaType', {}).get('text', None),
+        'sysAwardCriteriaType': award_criteria_obj.get('text', None),
         'caNoticeContractId': None
     }
 
