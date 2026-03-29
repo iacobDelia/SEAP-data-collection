@@ -51,7 +51,7 @@ def is_string_cs(text):
     text_low = text.lower()
 
     hints = ['caiet', 'sarcini', 'c.s.']
-    avoid_hints = ['anexa', 'contract', 'formular']
+    avoid_hints = ['anexa', 'contract', 'formular', 'aviz']
 
     found_hint = any(hint in text_low for hint in hints)
     
