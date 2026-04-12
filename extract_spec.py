@@ -19,6 +19,9 @@ from dotenv import load_dotenv
 import comtypes.client
 import uuid
 import seap_requests
+import argparse
+import datetime
+import pandas as pd
 load_dotenv()
 rarfile.UNRAR_TOOL = os.getenv("UNRAR_PATH")
 # need to remember cookies for extracting the document
@@ -196,8 +199,8 @@ def extract_text_cnid(cnid, sysNoticeTypeId, caNoticeId):
         raise Exception(f"No spec doc found")
     text_final = extract_text_file(doc, doc_name)
 
-    os.makedirs("caiete_text", exist_ok = True)
-    file_path = os.path.join("caiete_text", f"caiet_sarcini_{caNoticeId}.txt")
+    os.makedirs("caiete_text_noi", exist_ok = True)
+    file_path = os.path.join("caiete_text_noi", f"caiet_sarcini_{caNoticeId}.txt")
     with open(file_path, "w", encoding="utf-8") as f:
                 f.write(text_final)
 
@@ -207,16 +210,23 @@ def extract_text_noticeno(noticeNo, caNoticeId):
     cnid = rez_list[0].get('cNoticeId')
     extract_text_cnid(cnid, "17", caNoticeId)
 
-def process_ca_dataset():
-    table = pq.read_table('seap_dataset/contract_awards/', columns=['cNoticeId', 'noticeNo', 'sysProcedureType', 'caNoticeId'])
-    # filter notices that dont have cnoticeid and convert to a list
-    filtered_table = table.filter(pc.field("cNoticeId").is_valid())
+def process_ca_dataset(date_start, date_end):
+    table = pq.read_table('seap_dataset/contract_awards/', columns=['cNoticeId', 'noticeNo', 'sysProcedureType', 'caNoticeId', 'caPublicationDate'])
+    start_ts = pd.Timestamp(date_start)
+    end_ts = pd.Timestamp(date_end).replace(hour=23, minute=59, second=59)
+    mask = (
+        (pc.field("cNoticeId").is_valid()) & 
+        (pc.field("caPublicationDate") >= start_ts) & 
+        (pc.field("caPublicationDate") <= end_ts)
+    )
+    # filter notices that dont have cnoticeid and are between given dates then convert to a list
+    filtered_table = table.filter(mask)
     records = filtered_table.to_pylist()
 
     pbar = tqdm(records, desc="Cnotice_ids", position=0, leave=False)
     for record in pbar:
         try:
-            if os.path.exists(os.path.join("caiete_text", f"caiet_sarcini_{record['cNoticeId']}.txt")):
+            if os.path.exists(os.path.join("caiete_text_noi", f"caiet_sarcini_{record['cNoticeId']}.txt")):
                 continue
             extract_text_cnid(record['cNoticeId'], "2", record['caNoticeId'])
         except Exception as e:
@@ -229,11 +239,25 @@ def process_ca_dataset():
     pbar = tqdm(records, desc="noticeNo", position=0, leave=False)
     for record in pbar:
         try:
-            if os.path.exists(os.path.join("caiete_text", f"caiet_sarcini_{record['noticeNo']}.txt")):
+            if os.path.exists(os.path.join("caiete_text_noi", f"caiet_sarcini_{record['noticeNo']}.txt")):
                 continue
             extract_text_noticeno(record['noticeNo'], record['caNoticeId'])
         except Exception as e:
             tqdm.write(f"Exception processing simplified procedure {record['noticeNo']}, exception {e}")
 
 if __name__ == "__main__":
-    process_ca_dataset()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        'date_start',
+        type=lambda s: datetime.datetime.strptime(s, '%Y-%m-%d'),
+        help = "Beginning date, format: YYYY-MM-DD",
+        metavar = "YYYY-MM-DD"
+    )
+    parser.add_argument(
+        'date_end',
+        type=lambda s: datetime.datetime.strptime(s, '%Y-%m-%d'),
+        help = "Ending date, format: YYYY-MM_DD",
+        metavar = "YYYY-MM-DD"
+    )
+    args = parser.parse_args()
+    process_ca_dataset(args.date_start, args.date_end)

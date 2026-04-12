@@ -12,3 +12,4 @@ rarfile
 python-dotenv
 google-genai
 comtypes
+scikit-learn

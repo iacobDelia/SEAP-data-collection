@@ -7,3 +7,4 @@ test/*
 specs_extractor/*.txt
 .env
 caiete_text/*
+caiete_text_*

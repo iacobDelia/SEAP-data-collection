@@ -11,6 +11,10 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import datetime
+import argparse
+import pandas as pd
+import shutil
 load_dotenv()
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.getenv("SERVICE_ACCOUNT_KEY")
@@ -77,27 +81,38 @@ def analyze_document(file_path):
     print(f"\n gave up on {file_path} after {max_retries} tries")
     return None
 
-def update_parquet_with_results(result_list, output_path):
-    new_data_table = pa.Table.from_pylist(result_list)
+def update_parquet_with_results(result_list, parquet_path, output_path):
+    if not result_list:
+        print("no new results to add")
+        return
 
-    if os.path.exists(output_path):
-        existing_table = pq.read_table(output_path)
+    # file will be saved inside the extra folder
+    final_file_path = os.path.join(output_path, "contract_awards.parquet")
+    os.makedirs(output_path, exist_ok=True)
 
-        new_data_table = new_data_table.set_column(
-            new_data_table.schema.get_field_index("caNoticeId"), 
-            "caNoticeId", 
-            new_data_table.column("caNoticeId").cast(pa.int64())
-        )
+    new_results_df = pd.DataFrame(result_list)
+    new_results_df['caNoticeId'] = new_results_df['caNoticeId'].astype('int64')
+    new_results_df.set_index('caNoticeId', inplace=True)
 
-        # left join
-        final_table = existing_table.join(new_data_table, keys="caNoticeId", join_type="left outer")
-        
-        print("done merging!")
+    # load existing enriched file or base file
+    if os.path.exists(final_file_path):
+        base_df = pd.read_parquet(final_file_path)
+    else:
+        base_df = pd.read_parquet(parquet_path)
+        # initialize new columns
+        for col in ['softwareModules', 'experts', 'projectDuration']:
+            if col not in base_df.columns:
+                base_df[col] = None
 
-    base, ext = os.path.splitext(output_path)
-    new_path = f"{base}_merged{ext}"
-    pq.write_table(final_table, new_path)
-    print(f"Saved to: {new_path}")
+    base_df['caNoticeId'] = base_df['caNoticeId'].astype('int64')
+    base_df.set_index('caNoticeId', inplace=True, drop=False)
+
+    # update rows with ai results
+    base_df.update(new_results_df)
+
+    base_df.reset_index(drop=True, inplace=True)
+    base_df.to_parquet(final_file_path, index=False)
+    print(f"data saved to: {final_file_path}")
 
 def worker(filename, directory_path):
     full_path = os.path.join(directory_path, filename)
@@ -120,7 +135,7 @@ def worker(filename, directory_path):
     return None
 
 
-def iterate_files(directory_path, num_threads):
+def iterate_files(directory_path, num_threads, date_start, date_end):
     all_files = [f for f in os.listdir(directory_path) if f.endswith(".txt")]
     results = []
 
@@ -136,13 +151,19 @@ def iterate_files(directory_path, num_threads):
                 print(f"Error: {e}")
     return results
 
-if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("please specify input files and output files :(")
-    else:
-        num_threads = int(sys.argv[3]) if len(sys.argv) > 3 else 5
-
-        file_to_analyze = sys.argv[1]
-        result_list = iterate_files(sys.argv[1], num_threads)
+def clean_up(src="caiete_text_noi", dst="caiete_text"):
+    os.makedirs(dst, exist_ok=True)
+    
+    for filename in os.listdir(src):
+        src_path = os.path.join(src, filename)
+        dst_path = os.path.join(dst, filename)
         
-        update_parquet_with_results(result_list, sys.argv[2])
+        # move only files
+        if os.path.isfile(src_path):
+            shutil.move(src_path, dst_path)
+
+if __name__ == "__main__":
+    num_threads = 2
+    result_list = iterate_files("caiete_text_noi", num_threads)
+    update_parquet_with_results(result_list, "seap_dataset/contract_awards", "seap_dataset/contract_awards_extra")
+    clean_up()
