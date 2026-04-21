@@ -4,7 +4,7 @@ import requests
 def get_info_CANotice(id):
     headers = {'Content-Type': 'application/json;charset=UTF-8',
                'Referer': 'https://e-licitatie.ro/pub/notices/contract-notices/list/0/0'}
-    url = 'http://e-licitatie.ro/api-pub/C_PUBLIC_CANotice/get/' + id
+    url = 'https://e-licitatie.ro/api-pub/C_PUBLIC_CANotice/get/' + id
     r = requests.get(url, headers = headers, timeout = 5)
     return r.json()
 
@@ -20,7 +20,7 @@ def get_contract_details(id):
 def get_contract_award_list(date):
     headers = {'Content-Type': 'application/json;charset=UTF-8',
                'Referer': 'https://e-licitatie.ro/pub/notices/contract-notices/list/0/0'}
-    url = 'http://e-licitatie.ro/api-pub/NoticeCommon/GetCANoticeList/'
+    url = 'https://e-licitatie.ro/api-pub/NoticeCommon/GetCANoticeList/'
     body = {
     'sysNoticeTypeIds': [
         3,
@@ -50,7 +50,7 @@ def get_contract_award_list(date):
 def get_contracts_info(caNoticeId):
     headers = {'Content-Type': 'application/json;charset=UTF-8',
                'Referer': 'https://e-licitatie.ro/pub/notices/contract-notices/list/0/0'}
-    url = 'http://e-licitatie.ro/api-pub/C_PUBLIC_CANotice/GetCANoticeContracts'
+    url = 'https://e-licitatie.ro/api-pub/C_PUBLIC_CANotice/GetCANoticeContracts'
     body = {
     "caNoticeId": caNoticeId,
     "contractNo": None,

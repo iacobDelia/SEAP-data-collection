@@ -53,7 +53,8 @@ def analyze_document(file_path):
         try:
             with open(file_path, "r", encoding="utf-8") as file:
                 document_text = file.read()
-
+            if len(document_text) < 10:
+                return None
             response = client.models.generate_content(
                 model=MODEL_ID,
                 contents=document_text,
@@ -83,36 +84,26 @@ def analyze_document(file_path):
 
 def update_parquet_with_results(result_list, parquet_path, output_path):
     if not result_list:
-        print("no new results to add")
         return
 
-    # file will be saved inside the extra folder
     final_file_path = os.path.join(output_path, "contract_awards.parquet")
     os.makedirs(output_path, exist_ok=True)
 
+    original_df = pd.read_parquet(parquet_path)
+    original_df['caNoticeId'] = original_df['caNoticeId'].astype('int64')
+
     new_results_df = pd.DataFrame(result_list)
     new_results_df['caNoticeId'] = new_results_df['caNoticeId'].astype('int64')
-    new_results_df.set_index('caNoticeId', inplace=True)
 
-    # load existing enriched file or base file
+    current_batch_df = original_df.merge(new_results_df, on='caNoticeId', how='inner')
+
     if os.path.exists(final_file_path):
-        base_df = pd.read_parquet(final_file_path)
+        existing_df = pd.read_parquet(final_file_path)
+        final_df = pd.concat([current_batch_df, existing_df]).drop_duplicates(subset='caNoticeId', keep='first')
     else:
-        base_df = pd.read_parquet(parquet_path)
-        # initialize new columns
-        for col in ['softwareModules', 'experts', 'projectDuration']:
-            if col not in base_df.columns:
-                base_df[col] = None
+        final_df = current_batch_df
 
-    base_df['caNoticeId'] = base_df['caNoticeId'].astype('int64')
-    base_df.set_index('caNoticeId', inplace=True, drop=False)
-
-    # update rows with ai results
-    base_df.update(new_results_df)
-
-    base_df.reset_index(drop=True, inplace=True)
-    base_df.to_parquet(final_file_path, index=False)
-    print(f"data saved to: {final_file_path}")
+    final_df.to_parquet(final_file_path, index=False, engine='pyarrow')
 
 def worker(filename, directory_path):
     full_path = os.path.join(directory_path, filename)
@@ -135,7 +126,7 @@ def worker(filename, directory_path):
     return None
 
 
-def iterate_files(directory_path, num_threads, date_start, date_end):
+def iterate_files(directory_path, num_threads):
     all_files = [f for f in os.listdir(directory_path) if f.endswith(".txt")]
     results = []
 

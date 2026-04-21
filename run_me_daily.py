@@ -2,10 +2,11 @@ import pyarrow.parquet as pq
 import pyarrow.compute as pc
 import subprocess
 import sys
+import os
 from datetime import datetime
 
 if __name__ == "__main__":
-    table = pq.read_table('seap_dataset/contract_awards', columns=['caPublicationDate'])
+    table = pq.read_table('seap_dataset/contract_awards_IF', columns=['caPublicationDate'])
 
     latest_date_val = pc.max(table['caPublicationDate']).as_py()
     start_date = latest_date_val.strftime('%Y-%m-%d')

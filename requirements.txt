@@ -13,3 +13,4 @@ python-dotenv
 google-genai
 comtypes
 scikit-learn
+polars

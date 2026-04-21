@@ -5,7 +5,7 @@ import os
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 import pyarrow as pa
-
+import polars as pl
 # convert date from string to datetime
 def convert_date(string_data):
     if not string_data:
@@ -167,13 +167,14 @@ def merge_everything():
         ts = time.time_ns()
         merge_parquet(file_list, f'seap_dataset/{table_name}/{table_name}_{ts}.parquet')
 
-# merges all parquet files from a given list
+#
 def merge_parquet(files, name):
     if not files:
         return
-    schema = pq.ParquetFile(files[0]).schema_arrow
-    with pq.ParquetWriter(name, schema=schema) as writer:
-        for file in files:
-            writer.write_table(pq.read_table(file, schema=schema))
+
+    df = pl.read_parquet(files)
+    df_clean = df.unique()
+    df_clean.write_parquet(name)
+    
     for file in files:
         os.remove(file)

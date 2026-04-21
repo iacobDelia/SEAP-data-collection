@@ -233,7 +233,14 @@ def process_ca_dataset(date_start, date_end):
             tqdm.write(f"Exception processing {record['cNoticeId']}, exception {e}")
 
     # now for the simplified notices
-    filtered_table = table.filter(pc.field("noticeNo").is_valid()).filter(pc.field("sysProcedureType") == "Procedura simplificata")
+    mask = (
+        (pc.field("noticeNo").is_valid()) &
+        (pc.field("sysProcedureType") == "Procedura simplificata") &
+        (pc.field("cNoticeId").is_valid()) & 
+        (pc.field("caPublicationDate") >= start_ts) & 
+        (pc.field("caPublicationDate") <= end_ts)
+    )
+    filtered_table = table.filter(mask)
     records = filtered_table.to_pylist()
 
     pbar = tqdm(records, desc="noticeNo", position=0, leave=False)
