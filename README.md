@@ -37,6 +37,8 @@ SEAP_DATASET
 | :--- | :--- | :--- |
 | **caNoticeId** | `int64` | Unique internal identifier |
 | **noticeId** | `int64` | General identifier for the public notice |
+| **cNoticeId** | `int64` | Unique internal identifier for the publication associated with this contract award |
+| **noticeId** | `int64` | Legal identifier for the publication associated with this contract award |
 | **sysNoticeTypeId** | `string` | The category of the notice |
 | **sysProcedureState** | `string` | The current status of the procedure |
 | **sysProcedureType** | `string` | The procurement method |
